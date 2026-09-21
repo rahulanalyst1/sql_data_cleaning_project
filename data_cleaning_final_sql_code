@@ -1,1 +1,176 @@
+create database sales_data_cleaning;
+use sales_data_cleaning;
 
+select * from sales
+
+--Step 1 :- To check for duplicates
+--Step 2 :- Check For Null Values
+--Step 3 :- Treating Null values
+--Step 4 :- Handling Negative values
+--Step 5 :- Fixing Inconsistent Date Formats & Invalid Dates
+--Step 6 :- Fixing Invalid Email Addresses
+--Step 7 :- Checking the datatype
+
+-- using cte with to check the num of duplicate window function row_number beacuse it give the unique number to every rows and do not skip tie 
+with CTE as (
+select *,
+row_number() over(partition by transaction_id order by transaction_id) row_num
+from sales
+)
+
+delete from CTE 
+where row_num > 1
+
+select *
+from CTE
+where row_num > 1
+
+-- check null value 
+select * from sales
+where transaction_id is null 
+or 
+customer_id is null 
+or 
+customer_name is null 
+
+DECLARE @SQL NVARCHAR(MAX) = '';
+
+SELECT @SQL = STRING_AGG(
+    'SELECT ''' + COLUMN_NAME + ''' AS ColumnName,
+            COUNT(*) AS NullCount
+     FROM ' + QUOTENAME(TABLE_SCHEMA) + '.sales
+     WHERE ' + QUOTENAME(COLUMN_NAME) + ' IS NULL',
+    ' UNION ALL '
+)
+WITHIN GROUP (ORDER BY COLUMN_NAME)
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'sales';
+
+EXEC sp_executesql @SQL;
+
+-- treating nulls value 
+select distinct category from sales 
+
+update sales 
+set category = 'unknown'
+where category is null;
+
+update sales 
+set customer_address = 'not available'
+where customer_address is null;
+
+update sales 
+set customer_address = 'not available'
+where customer_address is null;
+
+update sales 
+set customer_name = 'N/A'
+where customer_name is null;
+
+select distinct payment_method from sales 
+update sales 
+set payment_method = 'credit card'
+where payment_method in('CC','creditcard','credit')
+
+update sales 
+set payment_method = 'cash'
+where payment_method is null 
+
+update sales 
+set total_amount = 'not available'
+where total_amount is null;
+
+select distinct delivery_status from sales 
+update sales 
+set delivery_status = 'not delivered'
+where delivery_status is null;
+
+-- mean avg 2510.76803817603
+select avg(price) from sales 
+
+-- mode 
+select price,count(*) as max_count
+from sales 
+group by price 
+order by max_count desc
+
+-- median 2530.75
+select distinct 
+  percentile_cont(0.5) within group (order by price) over() as median 
+from sales;
+
+select category, avg(price) 
+from sales 
+group by category
+
+update sales 
+set price = 2511.41
+where price is null and category='unknown'
+
+update sales 
+set price = 2501.05
+where price is null and category='home & kitchen'
+
+update sales 
+set price = 2663.92
+where price is null and category='electronics'
+
+update sales 
+set price = 2539.27
+where price is null and category='clothing'
+
+select * from sales
+
+-- handling negative value 
+select * from sales 
+where quantity < 0
+
+update sales 
+set quantity = abs(quantity) 
+where quantity < 0
+
+update sales 
+set total_amount = price * quantity
+where total_amount is null or total_amount <> price * quantity 
+
+select * from sales 
+where customer_name is null 
+
+select * from sales 
+where customer_id is null 
+
+update sales 
+set customer_name = 'user'
+where customer_name is null
+
+select * from sales 
+where purchase_date = '2024-02-30'
+
+update sales 
+UPDATE sales 
+SET purchase_date =
+	CASE 
+		WHEN TRY_CONVERT(DATE,purchase_date, 103) IS NOT NULL
+		THEN TRY_CONVERT(DATE,purchase_date, 103)
+	ELSE NULL
+END;
+
+--------------------------------------------------------------------------------------------
+--Step 6 :- Fixing Invalid Email Addresses
+
+SELECT * FROM SALES
+WHERE email NOT LIKE '%@%'
+
+UPDATE sales
+SET email= NULL 
+WHERE email NOT LIKE '%@%'
+
+--------------------------------------------------------------------------------------------
+--Step 7 :- Checking the datatype
+
+SELECT COLUMN_NAME, DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME='sales'
+
+ALTER TABLE sales
+ALTER COLUMN purchase_date DATE;
